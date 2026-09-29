@@ -1,0 +1,8 @@
+correlation_id=req-f5c6c9de
+trace_id=a675427ee7a7b79c45beb6011af138ff
+trace_name=day13-agent-request
+root=lab-agent-run duration=3.889s
+child=retrieval type=RETRIEVER duration=2.509s
+child=fake-llm-generation type=GENERATION duration=0.157s model=claude-sonnet-4-5 input_tokens=69 output_tokens=82 total_tokens=151 cost_usd=0.001437
+
+Root cause evidence: retrieval is the dominant child duration; generation is comparatively fast.

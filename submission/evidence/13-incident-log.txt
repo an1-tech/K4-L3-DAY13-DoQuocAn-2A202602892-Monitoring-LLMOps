@@ -1,0 +1,4 @@
+ts=2026-09-29T08:58:08.230921Z event=request_received correlation_id=req-f5c6c9de feature=monitoring model=claude-sonnet-4-5 env=dev
+ts=2026-09-29T08:58:12.537181Z event=response_sent correlation_id=req-f5c6c9de latency_ms=3882 ttft_ms=50 tool_name=retrieval tool_success=true tokens_in=69 tokens_out=82 cost_usd=0.001437 quality_score=0.8
+
+The log contains no raw user identifier and no unredacted email, phone, identity-card, or payment-card value.

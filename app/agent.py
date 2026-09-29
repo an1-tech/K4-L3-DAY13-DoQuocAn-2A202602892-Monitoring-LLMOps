@@ -22,6 +22,97 @@ class AgentResult:
     cost_usd: float
     quality_score: float
 
+@observe(
+    name="retrieval",
+    as_type="retriever",
+    capture_input=False,
+    capture_output=False,
+)
+def traced_retrieve(message: str) -> list[str]:
+    docs = retrieve(message)
+
+    client = get_langfuse_client()
+    update_span = getattr(client, "update_current_span", None)
+
+    if callable(update_span):
+        update_span(
+            input={
+                "query_preview": summarize_text(message),
+            },
+            output={
+                "doc_count": len(docs),
+                "document_previews": [
+                    summarize_text(document, max_len=120)
+                    for document in docs
+                ],
+            },
+            metadata={
+                "pii_scrubbed": True,
+            },
+        )
+
+    return docs
+
+
+@observe(
+    name="fake-llm-generation",
+    as_type="generation",
+    capture_input=False,
+    capture_output=False,
+)
+def traced_generate(llm: FakeLLM, prompt_text: str):
+    response = llm.generate(prompt_text)
+
+    input_cost = (
+        response.usage.input_tokens / 1_000_000
+    ) * 3
+    output_cost = (
+        response.usage.output_tokens / 1_000_000
+    ) * 15
+    total_cost = input_cost + output_cost
+
+    client = get_langfuse_client()
+    update_generation = getattr(
+        client,
+        "update_current_generation",
+        None,
+    )
+
+    if callable(update_generation):
+        update_generation(
+            model=response.model,
+            input={
+                "prompt_preview": summarize_text(
+                    prompt_text,
+                    max_len=240,
+                ),
+            },
+            output={
+                "answer_preview": summarize_text(
+                    response.text,
+                    max_len=240,
+                ),
+            },
+            usage_details={
+                "input": response.usage.input_tokens,
+                "output": response.usage.output_tokens,
+                "total": (
+                    response.usage.input_tokens
+                    + response.usage.output_tokens
+                ),
+            },
+            cost_details={
+                "input": round(input_cost, 9),
+                "output": round(output_cost, 9),
+                "total": round(total_cost, 6),
+            },
+            metadata={
+                "ttft_ms": response.ttft_ms,
+                "pii_scrubbed": True,
+            },
+        )
+
+    return response
 
 class LabAgent:
     def __init__(self, model: str = "claude-sonnet-4-5") -> None:
@@ -51,7 +142,7 @@ class LabAgent:
             },
         ):
             started = time.perf_counter()
-            docs = retrieve(message)
+            docs = traced_retrieve(message)
             prompt = resolve_prompt(
                 langfuse_client,
                 feature=feature,
@@ -71,10 +162,12 @@ class LabAgent:
                 },
                 version=prompt.version,
             )
-            # TODO (CP2): instrument retrieve() and FakeLLM.generate() as child
-            # observations. The nested generation must receive prompt, usage and cost.
+            
             with propagate_attributes(prompt=prompt.managed_prompt):
-                response = self.llm.generate(prompt.text)
+                response = traced_generate(
+                    self.llm,
+                    prompt.text,
+                )
             quality_score = self._heuristic_quality(message, response.text, docs)
             latency_ms = int((time.perf_counter() - started) * 1000)
             cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)

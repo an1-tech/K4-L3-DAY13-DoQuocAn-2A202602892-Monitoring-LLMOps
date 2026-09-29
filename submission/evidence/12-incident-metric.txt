@@ -1,0 +1,11 @@
+Challenge ID: day13-k4-l3a-monitoring-llmops-v1
+Window (UTC): 2026-09-29T08:58:00.848309Z - 2026-09-29T08:58:23.208242Z
+Requests: 5
+Latency P50: 2657 ms
+Latency P95: 3637 ms
+Latency P99: 3833 ms
+Maximum latency: 3882 ms
+SLO threshold: 3000 ms
+Requests above threshold: 1
+
+Conclusion: latency P95 exceeded the 3000 ms SLO during the official challenge window.
